@@ -409,7 +409,7 @@ def get_held_symbols() -> list[str]:
         return []
 
 
-def execute_live_trade(
+async def execute_live_trade(
     symbol: str,
     action: str,
     confidence: float,
@@ -417,8 +417,8 @@ def execute_live_trade(
     size_eur: float,
 ) -> dict | None:
     """
-    Führt einen echten Kraken-Trade durch — nur bei sehr guter Analyse.
-    Gibt None zurück wenn deaktiviert, Symbol nicht unterstützt, oder Fehler.
+    Sendet zuerst eine Telegram-Bestätigung, dann Kraken-Trade — nur bei sehr guter Analyse.
+    Gibt None zurück wenn deaktiviert, abgelehnt, Symbol nicht unterstützt, oder Fehler.
     """
     if not is_kraken_enabled():
         return None
@@ -438,6 +438,19 @@ def execute_live_trade(
         )
         return None
 
+    # Telegram-Bestätigung anfordern
+    from telegram_notifier import request_trade_approval, send_trade_confirmation
+    approved = await request_trade_approval(
+        symbol=symbol,
+        action=action,
+        size_eur=size_eur,
+        confidence=confidence,
+        weighted_score=weighted_score,
+    )
+    if not approved:
+        logger.info(f"Kraken {action} {symbol}: Nicht genehmigt — übersprungen")
+        return None
+
     client = get_client()
     if not client:
         return None
@@ -448,14 +461,28 @@ def execute_live_trade(
                 f"KRAKEN LIVE BUY: {symbol} → {pair} | "
                 f"EUR {size_eur:.2f} | Konfidenz={confidence:.1%} | Score={weighted_score:+.3f}"
             )
-            return client.buy(pair, size_eur)
+            result = client.buy(pair, size_eur)
+            await send_trade_confirmation(
+                symbol=symbol, action="BUY",
+                volume=result["volume"], price_eur=result["price_eur"],
+                order_ids=result.get("order_ids", []),
+            )
+            return result
 
         elif action == "SELL":
             logger.info(
                 f"KRAKEN LIVE SELL: {symbol} → {pair} | "
                 f"Konfidenz={confidence:.1%} | Score={weighted_score:+.3f}"
             )
-            return client.sell_all(pair)
+            result = client.sell_all(pair)
+            if result:
+                price = client.get_ask_price_eur(pair)
+                await send_trade_confirmation(
+                    symbol=symbol, action="SELL",
+                    volume=result["volume"], price_eur=price,
+                    order_ids=result.get("order_ids", []),
+                )
+            return result
 
     except Exception as exc:
         logger.error(f"Kraken Live Trade fehlgeschlagen [{symbol}]: {exc}")

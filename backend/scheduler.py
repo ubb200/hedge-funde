@@ -176,7 +176,7 @@ async def run_daily_analysis():
 
                 # Kraken Live Trade — nur für Krypto mit sehr guter Analyse
                 orch = result.get("orchestrator", {})
-                kraken_result = kraken_client.execute_live_trade(
+                kraken_result = await kraken_client.execute_live_trade(
                     symbol=symbol,
                     action=orch.get("action", "HOLD"),
                     confidence=orch.get("confidence", 0.0),
