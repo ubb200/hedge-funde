@@ -33,12 +33,30 @@ STOCKS = [
 ]
 
 CRYPTO = [
-    "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD",
-    "DOGE-USD", "ADA-USD", "AVAX-USD", "LINK-USD", "DOT-USD",
-    "ATOM-USD", "LTC-USD", "BCH-USD",
-    "NEAR-USD", "FIL-USD", "ALGO-USD", "VET-USD",
-    "ICP-USD", "HBAR-USD", "ARB-USD", "OP-USD", "INJ-USD",
-    "TIA-USD", "SEI-USD", "SHIB-USD",
+    # Top 10
+    "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD",
+    "DOGE-USD", "AVAX-USD", "DOT-USD", "LINK-USD", "LTC-USD",
+    # Layer 1 / Smart Contract
+    "ATOM-USD", "NEAR-USD", "ICP-USD", "APT-USD", "SUI-USD",
+    "SEI-USD", "TAO-USD", "EGLD-USD", "XTZ-USD", "ALGO-USD",
+    "VET-USD", "HBAR-USD", "FLOW-USD", "KSM-USD", "XLM-USD",
+    "BCH-USD", "ETC-USD", "DASH-USD", "XMR-USD",
+    # Layer 2 / Rollups
+    "ARB-USD", "OP-USD", "MATIC-USD", "POL-USD",
+    # DeFi
+    "UNI-USD", "AAVE-USD", "LDO-USD", "CRV-USD", "SNX-USD",
+    "COMP-USD", "YFI-USD", "BAL-USD", "SUSHI-USD", "DYDX-USD",
+    "GRT-USD", "RPL-USD", "PENDLE-USD", "ENA-USD", "ONDO-USD",
+    # AI / Data
+    "FET-USD", "OCEAN-USD", "RENDER-USD",
+    # Meme
+    "SHIB-USD", "PEPE-USD", "BONK-USD", "WIF-USD", "FLOKI-USD",
+    # Gaming / NFT
+    "SAND-USD", "MANA-USD", "AXS-USD", "ENJ-USD", "CHZ-USD",
+    # Infrastructure / Other
+    "FIL-USD", "TIA-USD", "INJ-USD", "JUP-USD", "JTO-USD",
+    "PYTH-USD", "WLD-USD", "TRX-USD", "STX-USD", "TON-USD",
+    "KAS-USD",
 ]
 
 ETFS = [
