@@ -117,16 +117,25 @@ async def run_daily_analysis():
     screened_symbols = [s["symbol"] for s in screened]
     logger.info(f"Stufe 1 abgeschlossen: {len(screened_symbols)} Kandidaten")
 
-    # Bestehende Positionen IMMER analysieren (Exit-Signale nicht verpassen)
+    # Bestehende Paper-Positionen IMMER analysieren (Exit-Signale nicht verpassen)
     with get_conn() as conn:
         existing_positions = get_positions(conn)
     existing_symbols = [p["symbol"] for p in existing_positions]
 
-    # Dedupliziert: bestehende Positionen zuerst, dann neue Kandidaten
-    all_symbols = list(dict.fromkeys(existing_symbols + screened_symbols))
+    # Echte Kraken-Bestände ebenfalls analysieren (Verkauf bei schlechtem Score)
+    kraken_symbols: list[str] = []
+    if kraken_client.is_kraken_enabled():
+        kraken_symbols = await asyncio.to_thread(kraken_client.get_held_symbols)
+        new_kraken = [s for s in kraken_symbols if s not in existing_symbols]
+        if new_kraken:
+            logger.info(f"Kraken-Bestände (zusätzlich): {new_kraken}")
+
+    # Dedupliziert: bestehend → Kraken → neue Kandidaten
+    all_symbols = list(dict.fromkeys(existing_symbols + kraken_symbols + screened_symbols))
     logger.info(
-        f"Analyse-Queue: {len(existing_symbols)} bestehend + "
-        f"{len(screened_symbols)} neu = {len(all_symbols)} total"
+        f"Analyse-Queue: {len(existing_symbols)} Paper + "
+        f"{len(kraken_symbols)} Kraken + "
+        f"{len(screened_symbols)} Screener = {len(all_symbols)} total"
     )
 
     # Stufe 2: Claude-Tiefenanalyse

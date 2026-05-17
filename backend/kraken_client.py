@@ -193,6 +193,32 @@ def symbol_to_pair(symbol: str) -> str | None:
     return SYMBOL_TO_PAIR.get(symbol.upper())
 
 
+def get_held_symbols() -> list[str]:
+    """
+    Gibt die yfinance-Symbole zurück, für die echte Bestände auf Kraken existieren
+    (über dem Minimum-Volumen). Wird täglich für Exit-Analyse genutzt.
+    """
+    client = get_client()
+    if not client:
+        return []
+    try:
+        balance = client.get_balance()
+        held = []
+        fiat = {"ZEUR", "ZUSD", "ZGBP", "ZCAD", "KFEE", "CHF"}
+        for symbol, pair in SYMBOL_TO_PAIR.items():
+            asset = PAIR_TO_ASSET.get(pair)
+            if not asset:
+                continue
+            amount = balance.get(asset, 0.0)
+            if amount >= MIN_VOLUME.get(pair, 0.0001):
+                held.append(symbol)
+        logger.info(f"Kraken-Bestände (>Minimum): {held or 'keine'}")
+        return held
+    except Exception as exc:
+        logger.error(f"Kraken Balance-Abfrage fehlgeschlagen: {exc}")
+        return []
+
+
 def execute_live_trade(
     symbol: str,
     action: str,
