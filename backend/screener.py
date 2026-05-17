@@ -17,8 +17,13 @@ def _calc_rsi(series: pd.Series, period: int = 14) -> float:
     gain = delta.clip(lower=0).ewm(com=period - 1, adjust=False).mean()
     loss = (-delta.clip(upper=0)).ewm(com=period - 1, adjust=False).mean()
     rs = gain / loss.replace(0, 1e-10)
-    rsi = 100 - (100 / (1 + rs))
-    return float(rsi.iloc[-1])
+    return float((100 - (100 / (1 + rs))).iloc[-1])
+
+
+def _calc_ema(series: pd.Series, period: int) -> float:
+    if len(series) < period:
+        return float(series.iloc[-1]) if len(series) > 0 else 0.0
+    return float(series.ewm(span=period, adjust=False).mean().iloc[-1])
 
 
 def _score_symbol(close: pd.Series, volume: Optional[pd.Series]) -> tuple[float, str]:
@@ -27,58 +32,91 @@ def _score_symbol(close: pd.Series, volume: Optional[pd.Series]) -> tuple[float,
 
     score = 0.0
     reasons: list[str] = []
+    bullish = 0
+    bearish = 0
 
-    # RSI
+    current = float(close.iloc[-1])
+
+    # --- RSI ---
     rsi = _calc_rsi(close)
-    if rsi < 30:
-        score += (30 - rsi) / 30 * 0.5
+    if rsi < 35:
+        score += (35 - rsi) / 35 * 0.40
         reasons.append(f"RSI oversold {rsi:.0f}")
-    elif rsi > 70:
-        score -= (rsi - 70) / 30 * 0.5
+        bullish += 1
+    elif rsi > 65:
+        score -= (rsi - 65) / 35 * 0.40
         reasons.append(f"RSI overbought {rsi:.0f}")
+        bearish += 1
 
-    # Volume spike (letzter Tag vs 20-Tage-Durchschnitt)
+    # --- EMA-Trend (20 vs 50) ---
+    ema20 = _calc_ema(close, 20)
+    ema50 = _calc_ema(close, 50)
+    if ema20 > ema50 and current > ema20:
+        score += 0.20
+        reasons.append("EMA Aufwärtstrend")
+        bullish += 1
+    elif ema20 < ema50 and current < ema20:
+        score -= 0.20
+        reasons.append("EMA Abwärtstrend")
+        bearish += 1
+
+    # --- 5-Tage-Momentum ---
+    if len(close) >= 6:
+        ret_5d = (current / float(close.iloc[-6]) - 1) * 100
+        if abs(ret_5d) > 2:
+            score += ret_5d / 20
+            reasons.append(f"{ret_5d:+.1f}% (5d)")
+            bullish += 1 if ret_5d > 0 else 0
+            bearish += 1 if ret_5d < 0 else 0
+
+    # --- 20-Tage-Momentum ---
+    if len(close) >= 21:
+        ret_20d = (current / float(close.iloc[-21]) - 1) * 100
+        if abs(ret_20d) > 5:
+            score += ret_20d / 60
+
+    # --- SMA200 Marktregime ---
+    if len(close) >= 200:
+        sma200 = float(close.iloc[-200:].mean())
+        pct_vs_sma200 = (current / sma200 - 1) * 100
+        if pct_vs_sma200 > 5:
+            score += 0.10
+            bullish += 1
+        elif pct_vs_sma200 < -5:
+            score -= 0.10
+            bearish += 1
+
+    # --- Volume-Bestätigung ---
     if volume is not None and len(volume) >= 21 and volume.iloc[-1] > 0:
         vol_avg = float(volume.iloc[-21:-1].mean())
         if vol_avg > 0:
             vol_ratio = float(volume.iloc[-1]) / vol_avg
-            if vol_ratio > 2.5:
-                score += 0.2 if score >= 0 else -0.2
+            if vol_ratio > 2.0:
+                score += 0.15 if score >= 0 else -0.15
                 reasons.append(f"Vol {vol_ratio:.1f}x")
 
-    # 5-Tage-Momentum
-    if len(close) >= 6:
-        ret_5d = (float(close.iloc[-1]) / float(close.iloc[-6]) - 1) * 100
-        if abs(ret_5d) > 3:
-            score += ret_5d / 25
-            reasons.append(f"{ret_5d:+.1f}% (5d)")
-
-    # 20-Tage-Momentum
-    if len(close) >= 21:
-        ret_20d = (float(close.iloc[-1]) / float(close.iloc[-21]) - 1) * 100
-        if abs(ret_20d) > 8:
-            score += ret_20d / 80
-
-    # Abstand SMA50
-    if len(close) >= 50:
-        sma50 = float(close.iloc[-50:].mean())
-        pct_vs_sma50 = (float(close.iloc[-1]) / sma50 - 1) * 100
-        if abs(pct_vs_sma50) > 10:
-            score += pct_vs_sma50 / 150
-
-    # 52-Wochen-Hoch / -Tief
+    # --- 52-Wochen-Hoch / -Tief ---
     lookback = min(252, len(close))
     if lookback >= 50:
         period_slice = close.iloc[-lookback:]
-        high = float(period_slice.max())
-        low = float(period_slice.min())
-        current = float(close.iloc[-1])
-        if current >= high * 0.98:
+        high52 = float(period_slice.max())
+        low52 = float(period_slice.min())
+        if current >= high52 * 0.97:
             score += 0.15
             reasons.append("~52w Hoch")
-        elif current <= low * 1.02:
+            bullish += 1
+        elif current <= low52 * 1.03:
             score -= 0.15
             reasons.append("~52w Tief")
+            bearish += 1
+
+    # --- Confluence Bonus: mehrere Signale stimmen überein ---
+    if bullish >= 3:
+        score += 0.15
+        reasons.append(f"Confluence ({bullish} bullisch)")
+    elif bearish >= 3:
+        score -= 0.15
+        reasons.append(f"Confluence ({bearish} bärisch)")
 
     return score, " | ".join(reasons) if reasons else "Neutral"
 
@@ -109,7 +147,6 @@ async def run_screener(top_n: int = 25) -> list[dict]:
         logger.warning("Screener: leeres DataFrame")
         return []
 
-    # Spalten extrahieren (MultiIndex bei mehreren Symbolen)
     if isinstance(data.columns, pd.MultiIndex):
         close_all: pd.DataFrame = data["Close"]
         volume_all: pd.DataFrame = data["Volume"] if "Volume" in data.columns.get_level_values(0) else pd.DataFrame()

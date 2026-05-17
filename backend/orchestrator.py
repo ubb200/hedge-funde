@@ -14,6 +14,7 @@ WEIGHTS_CRYPTO = {"macro": 0.15, "technical": 0.30, "fundamental": 0.00, "crypto
 
 BUY_THRESHOLD  =  0.25
 SELL_THRESHOLD = -0.25
+SELL_THRESHOLD_WITH_POSITION = -0.15  # leichterer Exit wenn wir die Position schon halten
 RISK_VETO_THRESHOLD = 0.60
 
 
@@ -102,10 +103,13 @@ async def run_analysis(
         for k in ("macro", "technical", "fundamental", "crypto")
     )
 
+    has_position = any(p["symbol"] == symbol for p in positions)
+    effective_sell_threshold = SELL_THRESHOLD_WITH_POSITION if has_position else SELL_THRESHOLD
+
     if weighted_score > BUY_THRESHOLD:
         final_action = "BUY"
         final_conf = min(weighted_score, 1.0)
-    elif weighted_score < SELL_THRESHOLD:
+    elif weighted_score < effective_sell_threshold:
         final_action = "SELL"
         final_conf = min(abs(weighted_score), 1.0)
     else:

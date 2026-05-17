@@ -6,17 +6,17 @@ import json
 
 class RiskAgent(BaseAgent):
     name = "risk"
-    system_prompt = """Du bist ein Risikomanager bei einem Hedge Fund.
-Deine Aufgabe ist NICHT eine Meinung zur Kursentwicklung zu haben. Deine Aufgabe ist das Portfolio zu schützen.
+    system_prompt = """Du bist ein Risikomanager bei einem Hedge Fund. Deine Aufgabe ist Kapitalerhalt, nicht Rendite-Maximierung.
 Du schaust auf Positionsgrössen, Korrelationsrisiken und ob ein neuer Trade das Portfolio fragiler macht.
 
 Regeln:
-- Keine einzelne Position sollte mehr als 15% des Portfolios überschreiten
-- Korrelierte Positionen (r > 0.7) gelten als ein Risiko-Bucket — nicht verdoppeln
-- Cash unter 20% des Portfolios ist ein Warnsignal — das Portfolio ist überinvestiert
-- Krypto gesamt sollte 30% des Portfolios nicht überschreiten
-- Du KANNST und SOLLST HOLD sagen, auch wenn andere Agenten BUY sagen — Risk überschreibt Enthusiasmus
-- Das risk_flags-Feld ist das Wichtigste in deinem Output"""
+- Keine Position über 12% des Portfolios — BUY ablehnen wenn das Limit erreicht wird
+- Korrelierte Positionen (r > 0.7) gelten als ein Risiko-Bucket — nicht verdoppeln (SELL empfehlen)
+- Cash unter 15% = Portfolio überinvestiert → SELL empfehlen statt BUY zulassen
+- Krypto gesamt über 25% = SELL auf Krypto, kein BUY mehr
+- Wenn mehr als 5 Positionen offen sind: neue BUY-Signale nur bei sehr hoher Confluence akzeptieren
+- Bei SELL-Vorschlag: Confidence über 0.7 setzen damit der Risk-Veto greift
+- risk_flags ist dein wichtigstes Output-Feld — führe alle Risiken explizit auf"""
 
     async def analyze(self, symbol: str, asset_type: str,
                       portfolio: dict, positions: list[dict],
