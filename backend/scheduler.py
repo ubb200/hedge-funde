@@ -15,6 +15,7 @@ from paper_trading import get_portfolio_with_value, execute_from_analysis, execu
 from data_fetchers.yfinance_fetcher import get_current_price
 from screener import run_screener
 import kraken_client
+from telegram_notifier import send_signal_notification, XSTOCK_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,20 @@ async def run_daily_analysis():
                         f"  KRAKEN LIVE: {orch.get('action')} {symbol} "
                         f"— Order IDs: {kraken_result.get('order_ids')}"
                     )
+
+            # Signal-Notification für nicht-automatisch handelbare Assets
+            # (Aktien, ETFs, xStocks — alles was kein Kraken-Krypto-Pair hat)
+            orch = result.get("orchestrator", {})
+            if not kraken_client.symbol_to_pair(symbol):
+                kraken_asset = XSTOCK_NAMES.get(symbol)
+                await send_signal_notification(
+                    symbol=symbol,
+                    action=orch.get("action", "HOLD"),
+                    confidence=orch.get("confidence", 0.0),
+                    weighted_score=orch.get("weighted_score", 0.0),
+                    reasoning=orch.get("reasoning", ""),
+                    kraken_asset=kraken_asset,
+                )
 
             results.append(result)
 

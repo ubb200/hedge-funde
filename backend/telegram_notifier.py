@@ -154,6 +154,72 @@ async def request_trade_approval(
     return False
 
 
+# yfinance-Symbol → Kraken xStock Asset-Name (für manuelle Trades)
+XSTOCK_NAMES: dict[str, str] = {
+    "MSFT":  "MSFTx.T",
+    "AAPL":  "AAPLx.T",
+    "NVDA":  "NVDAx.T",
+    "TSLA":  "TSLAx.T",
+    "GOOGL": "GOOGLx.T",
+    "AMZN":  "AMZNx.T",
+    "META":  "METAx.T",
+    "PLTR":  "PLTRx.T",
+    "COIN":  "COINx.T",
+    "AMD":   "AMDx.T",
+    "INTC":  "INTCx.T",
+    "NFLX":  "NFLXx.T",
+    "JPM":   "JPMx.T",
+    "JNJ":   "JNJx.T",
+    "XOM":   "XOMx.T",
+    "SPY":   "SPYx.T",
+    "QQQ":   "QQQx.T",
+    "GLD":   "GLDx.T",
+    "SLV":   "SLVx.T",
+    "VT":    "VTx.T",
+    "ARKK":  "ARKKx.T",
+}
+
+# Schwelle für reine Signal-Notifications (niedriger als Auto-Trade)
+SIGNAL_MIN_CONFIDENCE = 0.65
+
+
+async def send_signal_notification(
+    symbol: str,
+    action: str,
+    confidence: float,
+    weighted_score: float,
+    reasoning: str,
+    kraken_asset: str | None = None,
+) -> None:
+    """
+    Sendet eine reine Signal-Info (kein Trade-Button) für Symbole
+    die der Bot nicht automatisch handeln kann (xStocks, Aktien, ETFs).
+    """
+    if not _is_configured():
+        return
+    if action == "HOLD":
+        return
+    if confidence < SIGNAL_MIN_CONFIDENCE:
+        return
+
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
+    emoji = "🟢" if action == "BUY" else "🔴"
+    kraken_line = f"\n<b>Kraken Asset:</b> <code>{kraken_asset}</code>" if kraken_asset else ""
+    short_reason = reasoning[:200] + "…" if len(reasoning) > 200 else reasoning
+
+    text = (
+        f"{emoji} <b>Signal: {symbol}</b>{kraken_line}\n\n"
+        f"<b>Empfehlung:</b> {action}\n"
+        f"<b>Konfidenz:</b> {confidence:.0%}\n"
+        f"<b>Score:</b> {weighted_score:+.3f}\n\n"
+        f"<i>{short_reason}</i>\n\n"
+        f"⚠️ <b>Manuell handeln</b> — Bot kann dieses Asset nicht automatisch traden."
+    )
+
+    await asyncio.to_thread(_send, chat_id, text)
+    logger.info(f"Telegram Signal gesendet: {action} {symbol} (Konfidenz {confidence:.0%})")
+
+
 async def send_trade_confirmation(
     symbol: str,
     action: str,
