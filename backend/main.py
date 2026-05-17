@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import math
@@ -24,6 +25,7 @@ from paper_trading import (
 from scheduler import run_daily_analysis, start_scheduler, stop_scheduler
 from screener import run_screener
 from config import WATCHLIST_PATH
+import kraken_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -301,6 +303,27 @@ async def get_universe():
         "etfs": len(ETFS),
         "symbols": ALL_SYMBOLS,
     }
+
+
+@app.get("/kraken/balance")
+async def kraken_balance():
+    """Zeigt echte Kraken-Kontostände (nur wenn KRAKEN_LIVE_ENABLED=true)."""
+    if not kraken_client.is_kraken_enabled():
+        raise HTTPException(status_code=503, detail="Kraken nicht konfiguriert (KRAKEN_LIVE_ENABLED=false oder Keys fehlen)")
+    try:
+        client = kraken_client.get_client()
+        balance = await asyncio.to_thread(client.get_balance)
+        # Nur relevante Assets zurückgeben (kein Staub unter 0.0001)
+        fiat = {"ZEUR", "ZUSD", "ZGBP", "ZCAD", "KFEE"}
+        crypto_balance = {k: v for k, v in balance.items() if v > 0.0001 or k in fiat and v > 0.01}
+        held_symbols = await asyncio.to_thread(kraken_client.get_held_symbols)
+        return {
+            "enabled": True,
+            "balance": crypto_balance,
+            "tradeable_symbols": held_symbols,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health")
