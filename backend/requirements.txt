@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+anthropic
+yfinance
+fredapi
+requests
+pandas
+numpy
+python-dotenv
+aiohttp
+apscheduler
+pydantic

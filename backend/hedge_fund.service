@@ -1,0 +1,17 @@
+[Unit]
+Description=AI Hedge Fund Backend
+After=network.target
+
+[Service]
+Type=simple
+User=tim
+WorkingDirectory=/home/tim/hedge-fund/backend
+EnvironmentFile=/home/tim/hedge-fund/.env
+ExecStart=/home/tim/hedge-fund/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

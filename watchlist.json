@@ -1,0 +1,5 @@
+{
+  "stocks": ["AAPL", "NVDA", "MSFT", "AMZN"],
+  "etfs": ["SPY", "QQQ", "VTI", "ARKK"],
+  "crypto": ["BTC-USD", "ETH-USD", "SOL-USD"]
+}

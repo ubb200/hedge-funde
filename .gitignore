@@ -1,0 +1,25 @@
+# Secrets — niemals committen
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+venv/
+.venv/
+
+# Datenbank (läuft lokal, auf Render neu)
+backend/hedge_fund.db
+backend/hedge_fund.db-shm
+backend/hedge_fund.db-wal
+
+# Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/.env*.local
+frontend/.vercel
+
+# System
+.DS_Store
+Thumbs.db
