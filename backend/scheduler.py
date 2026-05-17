@@ -16,6 +16,7 @@ from data_fetchers.yfinance_fetcher import get_current_price
 from screener import run_screener
 import kraken_client
 from telegram_notifier import send_signal_notification, XSTOCK_NAMES
+from learning import load_learning_context
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +142,15 @@ async def run_daily_analysis():
 
     # Stufe 2: Claude-Tiefenanalyse
     logger.info("Stufe 2: Tiefenanalyse mit Claude-Agenten...")
+
+    # Learning-Context einmal laden und für alle Symbole weitergeben
+    learning_ctx = await asyncio.to_thread(load_learning_context)
+    if learning_ctx.get("ready"):
+        logger.info(
+            f"Learning aktiv: {learning_ctx['num_trades']} Trades analysiert, "
+            f"Gewichte werden angepasst"
+        )
+
     with get_conn() as conn:
         portfolio_data = get_portfolio_with_value(conn)
 
@@ -152,6 +162,7 @@ async def run_daily_analysis():
                 symbol=symbol,
                 portfolio=portfolio_data,
                 positions=portfolio_data.get("positions", []),
+                learning_context=learning_ctx,
             )
 
             with get_conn() as conn:

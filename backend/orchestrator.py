@@ -8,6 +8,7 @@ from agents.risk_agent import RiskAgent
 from agents.sentiment_agent import SentimentAgent
 from data_fetchers.yfinance_fetcher import get_asset_type
 from config import MAX_POSITION_PCT
+from learning import get_adjusted_weights
 
 WEIGHTS_STOCK  = {"macro": 0.15, "technical": 0.30, "fundamental": 0.25, "crypto": 0.00, "risk": 0.15, "sentiment": 0.15}
 WEIGHTS_ETF    = {"macro": 0.20, "technical": 0.30, "fundamental": 0.20, "crypto": 0.00, "risk": 0.15, "sentiment": 0.15}
@@ -37,13 +38,18 @@ async def run_analysis(
     symbol: str,
     portfolio: dict,
     positions: list[dict],
+    learning_context: dict | None = None,
 ) -> dict:
     asset_type = get_asset_type(symbol)
-    weights = {
+    base_weights = {
         "stock": WEIGHTS_STOCK,
         "etf":   WEIGHTS_ETF,
         "crypto": WEIGHTS_CRYPTO,
     }.get(asset_type, WEIGHTS_STOCK)
+
+    # Lernende Gewichte: wenn genug Trade-History vorhanden
+    agent_stats = (learning_context or {}).get("agent_stats", {})
+    weights = get_adjusted_weights(base_weights, agent_stats) if agent_stats else base_weights
 
     macro_agent     = MacroAgent()
     tech_agent      = TechnicalAgent()
