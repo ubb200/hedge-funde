@@ -22,6 +22,6 @@ WATCHLIST_PATH = os.path.join(os.path.dirname(__file__), "..", "watchlist.json")
 KRAKEN_API_KEY     = os.getenv("KRAKEN_API_KEY", "")
 KRAKEN_API_SECRET  = os.getenv("KRAKEN_API_SECRET", "")
 KRAKEN_LIVE_ENABLED = os.getenv("KRAKEN_LIVE_ENABLED", "false").lower() == "true"
-KRAKEN_TRADE_SIZE_EUR   = float(os.getenv("KRAKEN_TRADE_SIZE_EUR", "50.0"))
+KRAKEN_TRADE_SIZE_EUR   = float(os.getenv("KRAKEN_TRADE_SIZE_EUR", "10.0"))
 KRAKEN_MIN_CONFIDENCE   = float(os.getenv("KRAKEN_MIN_CONFIDENCE", "0.85"))
 KRAKEN_MIN_SCORE        = float(os.getenv("KRAKEN_MIN_SCORE", "0.65"))
