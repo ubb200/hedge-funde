@@ -5,12 +5,13 @@ from agents.technical_agent import TechnicalAgent
 from agents.fundamental_agent import FundamentalAgent
 from agents.crypto_agent import CryptoAgent
 from agents.risk_agent import RiskAgent
+from agents.sentiment_agent import SentimentAgent
 from data_fetchers.yfinance_fetcher import get_asset_type
 from config import MAX_POSITION_PCT
 
-WEIGHTS_STOCK = {"macro": 0.20, "technical": 0.35, "fundamental": 0.30, "crypto": 0.00, "risk": 0.15}
-WEIGHTS_ETF   = {"macro": 0.20, "technical": 0.35, "fundamental": 0.30, "crypto": 0.00, "risk": 0.15}
-WEIGHTS_CRYPTO = {"macro": 0.15, "technical": 0.30, "fundamental": 0.00, "crypto": 0.40, "risk": 0.15}
+WEIGHTS_STOCK  = {"macro": 0.15, "technical": 0.30, "fundamental": 0.25, "crypto": 0.00, "risk": 0.15, "sentiment": 0.15}
+WEIGHTS_ETF    = {"macro": 0.20, "technical": 0.30, "fundamental": 0.20, "crypto": 0.00, "risk": 0.15, "sentiment": 0.15}
+WEIGHTS_CRYPTO = {"macro": 0.15, "technical": 0.25, "fundamental": 0.00, "crypto": 0.40, "risk": 0.15, "sentiment": 0.05}
 
 BUY_THRESHOLD  =  0.25
 SELL_THRESHOLD = -0.25
@@ -44,19 +45,19 @@ async def run_analysis(
         "crypto": WEIGHTS_CRYPTO,
     }.get(asset_type, WEIGHTS_STOCK)
 
-    macro_agent = MacroAgent()
-    tech_agent  = TechnicalAgent()
-    fund_agent  = FundamentalAgent()
-    crypto_agent = CryptoAgent()
+    macro_agent     = MacroAgent()
+    tech_agent      = TechnicalAgent()
+    fund_agent      = FundamentalAgent()
+    crypto_agent    = CryptoAgent()
+    sentiment_agent = SentimentAgent()
 
     # Phase 1: Alle nicht-risk Agenten parallel
-    macro_task  = macro_agent.analyze(symbol, asset_type)
-    tech_task   = tech_agent.analyze(symbol, asset_type)
-    fund_task   = fund_agent.analyze(symbol, asset_type)
-    crypto_task = crypto_agent.analyze(symbol, asset_type)
-
-    macro_sig, tech_sig, fund_sig, crypto_sig = await asyncio.gather(
-        macro_task, tech_task, fund_task, crypto_task,
+    macro_sig, tech_sig, fund_sig, crypto_sig, sentiment_sig = await asyncio.gather(
+        macro_agent.analyze(symbol, asset_type),
+        tech_agent.analyze(symbol, asset_type),
+        fund_agent.analyze(symbol, asset_type),
+        crypto_agent.analyze(symbol, asset_type),
+        sentiment_agent.analyze(symbol, asset_type),
         return_exceptions=False,
     )
 
@@ -65,13 +66,14 @@ async def run_analysis(
         "technical":   tech_sig,
         "fundamental": fund_sig,
         "crypto":      crypto_sig,
+        "sentiment":   sentiment_sig,
     }
 
     # Vorläufiger Score ohne Risk
     prelim_score = sum(
         _score(phase1_signals[k].get("action", "HOLD"), phase1_signals[k].get("confidence", 0.0))
         * weights[k]
-        for k in ("macro", "technical", "fundamental", "crypto")
+        for k in ("macro", "technical", "fundamental", "crypto", "sentiment")
     )
     prelim_action = "BUY" if prelim_score > BUY_THRESHOLD else ("SELL" if prelim_score < SELL_THRESHOLD else "HOLD")
 
@@ -100,7 +102,7 @@ async def run_analysis(
     weighted_score = sum(
         _score(all_signals[k].get("action", "HOLD"), all_signals[k].get("confidence", 0.0))
         * weights[k]
-        for k in ("macro", "technical", "fundamental", "crypto")
+        for k in ("macro", "technical", "fundamental", "crypto", "sentiment")
     )
 
     has_position = any(p["symbol"] == symbol for p in positions)

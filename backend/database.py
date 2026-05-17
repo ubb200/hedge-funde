@@ -58,6 +58,7 @@ def init_db():
                 fundamental_signal TEXT,
                 crypto_signal TEXT,
                 risk_signal TEXT,
+                sentiment_signal TEXT,
                 analyzed_at TEXT NOT NULL
             );
 
@@ -191,8 +192,8 @@ def insert_analysis(conn: sqlite3.Connection, symbol: str, asset_type: str,
         """INSERT INTO analyses
            (symbol, asset_type, orchestrator_action, orchestrator_confidence,
             orchestrator_reasoning, orchestrator_score,
-            macro_signal, technical_signal, fundamental_signal, crypto_signal, risk_signal, analyzed_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            macro_signal, technical_signal, fundamental_signal, crypto_signal, risk_signal, sentiment_signal, analyzed_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (symbol, asset_type,
          orchestrator.get("action"), orchestrator.get("confidence"),
          orchestrator.get("reasoning"), orchestrator.get("weighted_score"),
@@ -201,6 +202,7 @@ def insert_analysis(conn: sqlite3.Connection, symbol: str, asset_type: str,
          json.dumps(signals.get("fundamental")),
          json.dumps(signals.get("crypto")),
          json.dumps(signals.get("risk")),
+         json.dumps(signals.get("sentiment")),
          _now()),
     )
     return cur.lastrowid
@@ -213,7 +215,7 @@ def get_analyses(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
     result = []
     for r in rows:
         d = dict(r)
-        for key in ("macro_signal", "technical_signal", "fundamental_signal", "crypto_signal", "risk_signal"):
+        for key in ("macro_signal", "technical_signal", "fundamental_signal", "crypto_signal", "risk_signal", "sentiment_signal"):
             if d.get(key):
                 d[key] = json.loads(d[key])
         result.append(d)
@@ -227,7 +229,7 @@ def get_latest_analysis(conn: sqlite3.Connection, symbol: str) -> Optional[dict]
     if not row:
         return None
     d = dict(row)
-    for key in ("macro_signal", "technical_signal", "fundamental_signal", "crypto_signal", "risk_signal"):
+    for key in ("macro_signal", "technical_signal", "fundamental_signal", "crypto_signal", "risk_signal", "sentiment_signal"):
         if d.get(key):
             d[key] = json.loads(d[key])
     return d
