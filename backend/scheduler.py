@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from config import AUTO_TRADE_ENABLED, AUTO_TRADE_HOUR, MAX_POSITION_PCT
+from config import AUTO_TRADE_ENABLED, AUTO_TRADE_HOUR, MAX_POSITION_PCT, KRAKEN_TRADE_SIZE_EUR
 from database import (
     get_conn, get_positions, insert_analysis, insert_benchmark,
     insert_screener_results, mark_screener_analyzed,
@@ -14,6 +14,7 @@ from orchestrator import run_analysis
 from paper_trading import get_portfolio_with_value, execute_from_analysis, execute_sell
 from data_fetchers.yfinance_fetcher import get_current_price
 from screener import run_screener
+import kraken_client
 
 logger = logging.getLogger(__name__)
 
@@ -158,11 +159,26 @@ async def run_daily_analysis():
                 trade = execute_from_analysis(result)
                 if trade:
                     logger.info(
-                        f"  Trade: {trade['direction']} {symbol} "
+                        f"  Paper-Trade: {trade['direction']} {symbol} "
                         f"@ CHF {trade['price_chf']:.2f}"
                     )
                 else:
                     logger.info(f"  → HOLD für {symbol}")
+
+                # Kraken Live Trade — nur für Krypto mit sehr guter Analyse
+                orch = result.get("orchestrator", {})
+                kraken_result = kraken_client.execute_live_trade(
+                    symbol=symbol,
+                    action=orch.get("action", "HOLD"),
+                    confidence=orch.get("confidence", 0.0),
+                    weighted_score=orch.get("weighted_score", 0.0),
+                    size_eur=KRAKEN_TRADE_SIZE_EUR,
+                )
+                if kraken_result:
+                    logger.info(
+                        f"  KRAKEN LIVE: {orch.get('action')} {symbol} "
+                        f"— Order IDs: {kraken_result.get('order_ids')}"
+                    )
 
             results.append(result)
 
