@@ -3,6 +3,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, Portfolio, Trade } from "@/lib/api";
 
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`bg-gray-200 rounded animate-pulse ${className}`} />;
+}
+
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -26,16 +30,28 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="text-gray-500">Lade Dashboard…</p>;
-  if (error) return (
-    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-      Backend nicht erreichbar: {error}. Starte das Backend mit <code className="bg-red-100 px-1 rounded">uvicorn main:app --reload</code>
+  if (loading) return (
+    <div className="space-y-8">
+      <Skeleton className="h-10 w-48" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+      </div>
+      <Skeleton className="h-48" />
     </div>
   );
+
+  if (error) return (
+    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <strong>Backend nicht erreichbar:</strong> {error}
+      <p className="text-sm mt-1 text-red-500">Der Server wacht auf — bitte 30 Sekunden warten und dann neu laden.</p>
+    </div>
+  );
+
   if (!portfolio) return null;
 
-  const returnPct = ((portfolio.total_value_chf - 100000) / 100000 * 100).toFixed(2);
-  const returnPositive = portfolio.total_value_chf >= 100000;
+  const startCapital = 100000;
+  const returnPct = ((portfolio.total_value_chf - startCapital) / startCapital * 100).toFixed(2);
+  const returnPositive = portfolio.total_value_chf >= startCapital;
 
   return (
     <div className="space-y-8">
@@ -78,8 +94,8 @@ export default function Home() {
               <tr>
                 <th className="px-5 py-3 text-left">Symbol</th>
                 <th className="px-5 py-3 text-right">Menge</th>
-                <th className="px-5 py-3 text-right">Einstandspreis</th>
-                <th className="px-5 py-3 text-right">Aktueller Wert</th>
+                <th className="px-5 py-3 text-right">Einstand</th>
+                <th className="px-5 py-3 text-right">Aktuell</th>
                 <th className="px-5 py-3 text-right">P&L</th>
               </tr>
             </thead>
@@ -95,11 +111,17 @@ export default function Home() {
                     {pos.avg_buy_price.toLocaleString("de-CH", { maximumFractionDigits: 2 })}
                   </td>
                   <td className="px-5 py-3 text-right text-gray-600">
-                    {pos.position_value_chf ? `CHF ${pos.position_value_chf.toLocaleString("de-CH", { maximumFractionDigits: 0 })}` : "—"}
+                    {pos.position_value_chf
+                      ? `CHF ${pos.position_value_chf.toLocaleString("de-CH", { maximumFractionDigits: 0 })}`
+                      : "—"}
                   </td>
                   <td className={`px-5 py-3 text-right font-semibold ${(pos.pnl_chf ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    {pos.pnl_chf != null ? `${pos.pnl_chf >= 0 ? "+" : ""}CHF ${pos.pnl_chf.toLocaleString("de-CH", { maximumFractionDigits: 0 })}` : "—"}
-                    {pos.pnl_pct != null && <span className="ml-1 text-xs">({pos.pnl_pct >= 0 ? "+" : ""}{pos.pnl_pct.toFixed(1)}%)</span>}
+                    {pos.pnl_chf != null
+                      ? `${pos.pnl_chf >= 0 ? "+" : ""}CHF ${pos.pnl_chf.toLocaleString("de-CH", { maximumFractionDigits: 0 })}`
+                      : "—"}
+                    {pos.pnl_pct != null && (
+                      <span className="ml-1 text-xs">({pos.pnl_pct >= 0 ? "+" : ""}{pos.pnl_pct.toFixed(1)}%)</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -115,7 +137,7 @@ export default function Home() {
             <Link href="/trades" className="text-sm text-blue-600 hover:text-blue-800">Alle →</Link>
           </div>
           {trades.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-gray-400">Noch keine Trades. Starte eine Analyse!</p>
+            <p className="px-5 py-6 text-sm text-gray-400">Noch keine Trades — Scheduler läuft täglich um 09:00 Uhr.</p>
           ) : (
             <table className="w-full text-sm">
               <tbody className="divide-y divide-gray-100">
@@ -127,7 +149,9 @@ export default function Home() {
                       </span>
                       <span className="ml-2 font-semibold">{t.symbol}</span>
                     </td>
-                    <td className="px-5 py-3 text-right text-gray-600">CHF {t.total_chf.toLocaleString("de-CH", { maximumFractionDigits: 0 })}</td>
+                    <td className="px-5 py-3 text-right text-gray-600">
+                      CHF {t.total_chf.toLocaleString("de-CH", { maximumFractionDigits: 0 })}
+                    </td>
                     <td className={`px-5 py-3 text-right font-semibold ${(t.pnl_chf ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
                       {t.pnl_chf != null ? `${t.pnl_chf >= 0 ? "+" : ""}${t.pnl_chf.toFixed(0)}` : "—"}
                     </td>
@@ -142,6 +166,9 @@ export default function Home() {
           <h2 className="font-semibold text-gray-900">Schnellaktionen</h2>
           <Link href="/analyze" className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
             Symbol analysieren
+          </Link>
+          <Link href="/screener" className="block w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg transition-colors">
+            Screener starten
           </Link>
           <Link href="/performance" className="block w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg transition-colors">
             Performance anzeigen

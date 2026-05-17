@@ -7,6 +7,7 @@ const AGENT_NAMES: Record<string, string> = {
   fundamental: "Fundamental",
   crypto: "Krypto",
   risk: "Risiko",
+  sentiment: "Sentiment",
 };
 
 const AGENT_DESC: Record<string, string> = {
@@ -15,6 +16,7 @@ const AGENT_DESC: Record<string, string> = {
   fundamental: "KGV, Earnings, Bilanz",
   crypto: "Dominanz, Fear/Greed",
   risk: "Portfolio-Schutz",
+  sentiment: "News, Analysten, Insider",
 };
 
 interface Props {
@@ -23,6 +25,8 @@ interface Props {
 }
 
 export default function AgentCard({ name, signal }: Props) {
+  if (!signal) return null;
+
   const actionColor =
     signal.action === "BUY"
       ? "bg-green-100 text-green-800 border-green-300"
@@ -37,7 +41,7 @@ export default function AgentCard({ name, signal }: Props) {
       ? "bg-red-500"
       : "bg-gray-400";
 
-  const confidencePct = Math.round(signal.confidence * 100);
+  const confidencePct = Math.round((signal.confidence ?? 0) * 100);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm flex flex-col gap-3">
@@ -64,7 +68,9 @@ export default function AgentCard({ name, signal }: Props) {
         </div>
       </div>
 
-      <p className="text-sm text-gray-600 leading-relaxed">{signal.reasoning}</p>
+      {signal.reasoning && (
+        <p className="text-sm text-gray-600 leading-relaxed">{signal.reasoning}</p>
+      )}
 
       {signal.risk_flags && signal.risk_flags.length > 0 && (
         <div className="flex flex-wrap gap-1">

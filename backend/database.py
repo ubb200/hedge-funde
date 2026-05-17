@@ -82,6 +82,15 @@ def init_db():
             );
         """)
 
+        # Migrationen — neue Spalten sicher hinzufügen
+        for migration in [
+            "ALTER TABLE analyses ADD COLUMN sentiment_signal TEXT",
+        ]:
+            try:
+                conn.execute(migration)
+            except Exception:
+                pass  # Spalte existiert bereits
+
         row = conn.execute("SELECT id FROM portfolio WHERE id = 1").fetchone()
         if not row:
             conn.execute(

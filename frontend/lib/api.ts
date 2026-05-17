@@ -57,13 +57,7 @@ export interface AnalysisResult {
   symbol: string;
   asset_type: string;
   orchestrator: Orchestrator;
-  signals: {
-    macro: Signal;
-    technical: Signal;
-    fundamental: Signal;
-    crypto: Signal;
-    risk: Signal;
-  };
+  signals: Record<string, Signal>;
   analysis_id?: number;
 }
 
