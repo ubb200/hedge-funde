@@ -10,3 +10,4 @@ python-dotenv
 aiohttp
 apscheduler
 pydantic
+psycopg2-binary
