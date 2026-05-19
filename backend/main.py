@@ -31,10 +31,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logger = logging.getLogger(__name__)
 
 
+_startup_error: str | None = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
-    logger.info("Datenbank initialisiert")
+    global _startup_error
+    try:
+        init_db()
+        logger.info("Datenbank initialisiert")
+    except Exception as exc:
+        _startup_error = f"{type(exc).__name__}: {exc}"
+        logger.error(f"Datenbank-Initialisierung fehlgeschlagen: {exc}", exc_info=True)
     start_scheduler()
     yield
     stop_scheduler()
@@ -328,4 +336,4 @@ async def kraken_balance():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "AI Hedge Fund Backend"}
+    return {"status": "ok", "service": "AI Hedge Fund Backend", "startup_error": _startup_error}
