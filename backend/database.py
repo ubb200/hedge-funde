@@ -174,10 +174,16 @@ def init_db():
             if stmt:
                 cur.execute(stmt)
 
-        # Migrationen
-        for migration in [
-            "ALTER TABLE analyses ADD COLUMN sentiment_signal TEXT",
-        ]:
+        # Migrationen — PostgreSQL: IF NOT EXISTS verhindert Transaktionsabbruch
+        if USE_POSTGRES:
+            migrations = [
+                "ALTER TABLE analyses ADD COLUMN IF NOT EXISTS sentiment_signal TEXT",
+            ]
+        else:
+            migrations = [
+                "ALTER TABLE analyses ADD COLUMN sentiment_signal TEXT",
+            ]
+        for migration in migrations:
             try:
                 cur.execute(migration)
             except Exception:
