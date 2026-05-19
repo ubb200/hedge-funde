@@ -81,8 +81,8 @@ async def request_trade_approval(
     Falls Telegram nicht konfiguriert: gibt True zurück (Trade läuft durch).
     """
     if not _is_configured():
-        logger.info("Telegram nicht konfiguriert — Trade läuft ohne Bestätigung")
-        return True
+        logger.warning("Telegram nicht konfiguriert — Kraken-Trade BLOCKIERT (Sicherheitsschutz)")
+        return False
 
     chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
     emoji = "🟢" if action == "BUY" else "🔴"
