@@ -32,16 +32,18 @@ logger = logging.getLogger(__name__)
 
 
 _db_ready = False
+_db_error: str | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _db_ready
+    global _db_ready, _db_error
     try:
         init_db()
         _db_ready = True
         logger.info("Datenbank initialisiert")
     except Exception as exc:
+        _db_error = f"{type(exc).__name__}: {exc}"
         logger.error(f"Datenbank-Initialisierung fehlgeschlagen: {exc}", exc_info=True)
     start_scheduler()
     yield
@@ -340,4 +342,5 @@ async def health():
         "status": "ok",
         "service": "AI Hedge Fund Backend",
         "db": "connected" if _db_ready else "unavailable",
+        "db_error": _db_error,
     }
