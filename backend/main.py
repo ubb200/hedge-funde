@@ -342,5 +342,4 @@ async def health():
         "status": "ok",
         "service": "AI Hedge Fund Backend",
         "db": "connected" if _db_ready else "unavailable",
-        "db_error": _db_error,
     }
