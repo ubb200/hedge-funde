@@ -10,9 +10,10 @@ from data_fetchers.yfinance_fetcher import get_asset_type
 from config import MAX_POSITION_PCT
 from learning import get_adjusted_weights
 
-WEIGHTS_STOCK  = {"macro": 0.15, "technical": 0.30, "fundamental": 0.25, "crypto": 0.00, "risk": 0.15, "sentiment": 0.15}
-WEIGHTS_ETF    = {"macro": 0.20, "technical": 0.30, "fundamental": 0.20, "crypto": 0.00, "risk": 0.15, "sentiment": 0.15}
-WEIGHTS_CRYPTO = {"macro": 0.15, "technical": 0.25, "fundamental": 0.00, "crypto": 0.40, "risk": 0.15, "sentiment": 0.05}
+# Gewichte: Megatrends/Makro dominiert, Technical nur als Trend-Filter
+WEIGHTS_STOCK  = {"macro": 0.35, "technical": 0.10, "fundamental": 0.20, "crypto": 0.00, "risk": 0.15, "sentiment": 0.20}
+WEIGHTS_ETF    = {"macro": 0.35, "technical": 0.15, "fundamental": 0.15, "crypto": 0.00, "risk": 0.15, "sentiment": 0.20}
+WEIGHTS_CRYPTO = {"macro": 0.25, "technical": 0.10, "fundamental": 0.00, "crypto": 0.40, "risk": 0.15, "sentiment": 0.10}
 
 BUY_THRESHOLD  =  0.25
 SELL_THRESHOLD = -0.25

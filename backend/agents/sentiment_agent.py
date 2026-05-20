@@ -5,20 +5,28 @@ import asyncio
 
 class SentimentAgent(BaseAgent):
     name = "sentiment"
-    system_prompt = """Du bist ein Nachrichten- und Sentiment-Analyst bei einem Hedge Fund.
-Du analysierst aktuelle Nachrichten, Analystenempfehlungen und Insider-Transaktionen über Unternehmen.
-Du bewertest die qualitative Lage einer Firma: Führung, Reputation, politische Risiken, Produktneuheiten.
+    system_prompt = """Du bist ein Nachrichten- und Thematic-Sentiment-Analyst bei einem Hedge Fund.
+Du analysierst aktuelle Nachrichten auf zwei Ebenen:
+
+EBENE 1 — THEMATIC MOMENTUM (wichtiger):
+Zeigen die News, dass das Unternehmen von einem globalen Megatrend profitiert?
+- Neue KI-Verträge, Rechenzentrum-Deals, GPU-Nachfrage → KI-Megatrend
+- Kernkraft-Genehmigungen, Uran-Verträge, Reaktor-Aufträge → Kernenergie-Trend
+- Rüstungsaufträge, Regierungsverträge, Verteidigungsbudgets → Rüstungstrend
+- Insider kaufen MASSIV nach einem Rücksetzer → Management glaubt an Trend
+- Analysten-Upgrades wegen eines strukturellen Themas → bullisch
+- Nachrichten zeigen Gegenwind durch Regulierung/Zölle/Konkurrenz → bärisch
+
+EBENE 2 — UNTERNEHMENS-QUALITÄT:
+- CEO-Rücktritt / Führungskrise → stark negativ
+- Bilanzskandale, Betrug, Kartellverfahren → stark negativ
+- Produktlaunch, Übernahmen, Partnerschaften → positiv
 
 Regeln:
-- CEO-Rücktritt / Führungskrise = stark negativ (SELL, hohe Confidence)
-- Insider-Käufe durch CEO/CFO = stark positiv (Management glaubt an die Firma)
-- Massiver Insider-Verkauf = Warnsignal, aber allein kein SELL (oft nur Diversifikation)
-- Analystenupgrades von mehreren Häusern gleichzeitig = bullisch
-- Regulierungsrisiken, Kartellverfahren, Datenschutzskandale = negativ
-- Produktlaunch, Übernahmen, Partnerschaften = je nach Preis positiv
-- Keine News = HOLD mit niedriger Confidence (0.2) — Schweigen ist neutral
-- ETFs haben keine Unternehmens-News — gib HOLD mit Confidence 0.1
-- Sei konkret: zitiere die wichtigste Schlagzeile in deiner Begründung"""
+- Keine News = HOLD mit Confidence 0.2
+- ETFs: nur Sektor-Sentiment beurteilen (Confidence max 0.4)
+- Sei KONKRET: nenne die wichtigste Schlagzeile und den Megatrend-Bezug
+- Wenn News klar auf einen heissen Trend hinweisen → Confidence 0.7-0.85, klares BUY/SELL"""
 
     async def analyze(self, symbol: str, asset_type: str, **kwargs) -> dict:
         if asset_type == "etf":
@@ -78,9 +86,13 @@ ANALYSTENEMPFEHLUNGEN:
 INSIDER-TRANSAKTIONEN (letzte 6):
 {insider_text}
 
-Bewerte das qualitative Sentiment für {symbol} basierend auf diesen Informationen.
-Fokus auf: Unternehmensführung, Reputation, Risiken, strategische Entwicklung.
-Antworte nur mit JSON."""
+Bewerte das Sentiment für {symbol}:
+1. Welchem globalen Megatrend (KI, Kernenergie, Rüstung, Rohstoffe, Biotech, etc.) ist das Asset zuzuordnen?
+2. Unterstützen die News diesen Trend oder widersprechen sie ihm?
+3. Unternehmens-Qualitätssignale (Führung, Risiken, Entwicklungen)?
+4. Finales Urteil: BUY / HOLD / SELL
+
+Antworte nur mit JSON. Nenne konkret die wichtigste Schlagzeile und den Megatrend-Bezug."""
 
         result = await asyncio.to_thread(self._call_claude, user_prompt)
         result["key_metrics"] = {

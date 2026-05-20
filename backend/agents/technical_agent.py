@@ -5,18 +5,24 @@ import asyncio
 
 class TechnicalAgent(BaseAgent):
     name = "technical"
-    system_prompt = """Du bist ein technischer Analyst bei einem quantitativen Hedge Fund.
-Du interpretierst berechnete Indikatoren — du rechnest nie selbst, das wurde vorgelagert gemacht.
-Deine Aufgabe: die wichtigsten Muster-Signale identifizieren und zu einem klaren Richtungs-Urteil kombinieren.
+    system_prompt = """Du bist ein Trend-Analyst bei einem Hedge Fund. Deine einzige Aufgabe:
+Ist dieses Asset in einem Aufwärtstrend oder Abwärtstrend?
 
-Regeln:
-- Preis über SMA200 = langfristiger Bulle; darunter = Bär — das ist deine Grundhaltung
-- Confluence ist entscheidend: RSI bullisch + MACD bullisch + Preis über SMA50 = starkes BUY-Signal
-- RSI unter 35 UND Preis nahe 52-Wochen-Tief = potenzielle Trendwende, aber nur mit Volume-Bestätigung
-- MACD-Histogramm wächst = Momentum aufbaut sich; schrumpft = nachlässt
-- Bollinger-Band-Kompression (enge Bands) gefolgt von Ausbruch = hohe Confidence
-- ATR über 3% des Preises = erhöhte Volatilität → reduziere Confidence leicht
-- Entscheide KLAR: bei guten Confluences BUY oder SELL mit Confidence >0.6, nicht immer HOLD"""
+Du machst KEINE komplexe technische Analyse. Nur Trendbewertung.
+
+Entscheidungsregeln:
+- Preis > SMA50 > SMA200 UND 20T-Rendite > 0% → klarer Aufwärtstrend → BUY (Confidence 0.65-0.85)
+- Preis > SMA200 aber < SMA50 → schwacher/seitwärts Trend → HOLD (Confidence 0.4-0.55)
+- Preis < SMA200 → Abwärtstrend → SELL (Confidence 0.55-0.75)
+- Preis deutlich unter SMA200 (>-15%) UND negative 20T-Rendite → starker Abwärtstrend → SELL (Confidence 0.75-0.90)
+
+Momentum-Verstärker (erhöhe/senke Confidence um 0.05-0.10):
++ 60T-Rendite > +15%: Momentum stark, Confidence rauf
++ Volumen > 1.5x Durchschnitt: Breakout-Bestätigung
+- 20T-Rendite < -10%: Momentum schwach, Confidence leicht rauf (bestätigt SELL) oder runter (schwächt BUY)
+
+Im reasoning: Ein Satz zur Trendlage, ein Satz ob Momentum stärkt oder schwächt.
+Kein SELL wenn Preis über SMA200 — das ist kein Abwärtstrend."""
 
     async def analyze(self, symbol: str, asset_type: str, **kwargs) -> dict:
         tech = await asyncio.to_thread(get_technical_data, symbol)
@@ -24,37 +30,45 @@ Regeln:
         def fmt(v, decimals=2):
             return round(float(v), decimals) if v is not None else "N/A"
 
-        rsi = tech.get("rsi")
-        rsi_label = "überverkauft" if rsi and rsi < 30 else ("überkauft" if rsi and rsi > 70 else "neutral")
+        price = tech.get("price")
+        sma50 = tech.get("sma50")
+        sma200 = tech.get("sma200")
+        ret_20d = tech.get("ret_20d")
+        ret_60d = tech.get("ret_60d")
+        volume_ratio = tech.get("volume_ratio")
 
-        macd_hist = tech.get("macd_hist")
-        macd_label = "bullisch" if macd_hist and macd_hist > 0 else "bärisch"
+        # Trend-Label für Claude vorberechnen
+        if price and sma200:
+            if price > sma200 * 1.0:
+                if sma50 and price > sma50:
+                    trend_label = "AUFWÄRTSTREND (Preis über SMA50 und SMA200)"
+                else:
+                    trend_label = "SEITWÄRTS (Preis über SMA200, aber unter SMA50)"
+            else:
+                trend_label = "ABWÄRTSTREND (Preis unter SMA200)"
+        else:
+            trend_label = "Unbekannt (fehlende Daten)"
 
-        user_prompt = f"""Asset: {symbol} — Aktueller Preis: {fmt(tech.get('price'), 4)}
-Analysezeitraum: letzte 252 Handelstage
+        user_prompt = f"""Asset: {symbol} — Preis: {fmt(price, 4)}
 
-TECHNISCHE INDIKATOREN (vorberechnet):
-- RSI(14): {fmt(rsi)} [{rsi_label}]
-- MACD-Linie: {fmt(tech.get('macd'), 4)}, Signal: {fmt(tech.get('macd_signal'), 4)}, Histogramm: {fmt(macd_hist, 4)} [{macd_label}]
-- SMA20: {fmt(tech.get('sma20'), 4)} | SMA50: {fmt(tech.get('sma50'), 4)} | SMA200: {fmt(tech.get('sma200'), 4)}
-- Preis vs SMA20: {fmt(tech.get('pct_vs_sma20'))}% | vs SMA50: {fmt(tech.get('pct_vs_sma50'))}% | vs SMA200: {fmt(tech.get('pct_vs_sma200'))}%
-- Bollinger Upper: {fmt(tech.get('bb_upper'), 4)} | Mid: {fmt(tech.get('bb_mid'), 4)} | Lower: {fmt(tech.get('bb_lower'), 4)}
-- Preis-Position in BB: {fmt(tech.get('bb_pct'), 1)}% (0=unteres Band, 100=oberes Band)
-- ATR(14): {fmt(tech.get('atr'), 4)} ({fmt(tech.get('atr_pct'))}% des Preises = aktuelle Volatilität)
-- Volumen heute vs 20T-Durchschnitt: {fmt(tech.get('volume_ratio'))}x
+TRENDDATEN:
+- Trend-Status: {trend_label}
+- Preis vs SMA50: {fmt(tech.get('pct_vs_sma50'))}%
+- Preis vs SMA200: {fmt(tech.get('pct_vs_sma200'))}%
+- 20T-Rendite: {fmt(ret_20d)}%
+- 60T-Rendite: {fmt(ret_60d)}%
+- Volumen vs 20T-Durchschnitt: {fmt(volume_ratio)}x
 
-Preisbewegung:
-- 5T-Rendite: {fmt(tech.get('ret_5d'))}% | 20T-Rendite: {fmt(tech.get('ret_20d'))}% | 60T-Rendite: {fmt(tech.get('ret_60d'))}%
-
-Technisches Urteil für {symbol}? Antworte nur mit JSON."""
+Trend-Urteil für {symbol}: Aufwärtstrend (BUY) oder Abwärtstrend (SELL) oder unklar (HOLD)?
+Antworte nur mit JSON."""
 
         result = await asyncio.to_thread(self._call_claude, user_prompt)
         result["key_metrics"] = {
-            "rsi": rsi,
-            "macd_hist": macd_hist,
+            "trend": trend_label,
             "pct_vs_sma200": tech.get("pct_vs_sma200"),
-            "bb_pct": tech.get("bb_pct"),
-            "volume_ratio": tech.get("volume_ratio"),
-            "ret_20d": tech.get("ret_20d"),
+            "pct_vs_sma50": tech.get("pct_vs_sma50"),
+            "ret_20d": ret_20d,
+            "ret_60d": ret_60d,
+            "volume_ratio": volume_ratio,
         }
         return result
