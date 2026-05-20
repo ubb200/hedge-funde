@@ -46,6 +46,9 @@ function AgentPill({ name, sig }: { name: string; sig: Signal }) {
         <span className="text-[10px] text-gray-400 ml-auto">{Math.round((sig.confidence ?? 0) * 100)}%</span>
       </div>
       <p className="text-[11px] leading-snug opacity-80">{short}</p>
+      {sig.time_horizon && (
+        <p className="text-[10px] text-gray-400 font-medium">⏱ {sig.time_horizon}</p>
+      )}
     </div>
   );
 }
