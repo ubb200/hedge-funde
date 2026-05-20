@@ -1,21 +1,38 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail ?? "API-Fehler");
+async function apiFetch<T>(
+  path: string,
+  options?: RequestInit,
+  timeoutMs = 50000,
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail ?? "API-Fehler");
+    }
+    return res.json();
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error("Timeout — Backend antwortet nicht. Render wacht möglicherweise auf (dauert ~30s).");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
 }
 
 export const api = {
+  health: () => apiFetch<{ status: string; db: string }>("/health", undefined, 60000),
   portfolio: () => apiFetch<Portfolio>("/portfolio"),
   analyze: (symbol: string) =>
-    apiFetch<AnalysisResult>(`/analyze/${symbol}`, { method: "POST" }),
+    apiFetch<AnalysisResult>(`/analyze/${symbol}`, { method: "POST" }, 120000),
   analyseLatest: (symbol: string) =>
     apiFetch<DbAnalysis>(`/analyses/latest/${symbol}`),
   analyses: (limit = 20) => apiFetch<DbAnalysis[]>(`/analyses?limit=${limit}`),
@@ -26,11 +43,13 @@ export const api = {
     apiFetch<Watchlist>("/watchlist", { method: "PUT", body: JSON.stringify(data) }),
   executeTrade: (body: TradeRequest) =>
     apiFetch<TradeResult>("/trade/execute", { method: "POST", body: JSON.stringify(body) }),
-  runNow: () => apiFetch("/scheduler/run-now", { method: "POST" }),
+  runNow: () => apiFetch("/scheduler/run-now", { method: "POST" }, 1800000),
   screenerResults: () => apiFetch<ScreenerResult[]>("/screener/results"),
   screenerRun: (topN = 25) =>
     apiFetch<{ count: number; run_at: string; results: ScreenerResult[] }>(
-      `/screener/run?top_n=${topN}`, { method: "POST" }
+      `/screener/run?top_n=${topN}`,
+      { method: "POST" },
+      120000,
     ),
   universe: () => apiFetch<Universe>("/universe"),
 };

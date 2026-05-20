@@ -5,9 +5,9 @@ import { api, AnalysisResult } from "@/lib/api";
 import AgentCard from "@/components/AgentCard";
 import OrchestratorCard from "@/components/OrchestratorCard";
 
-const QUICK_SYMBOLS = ["AAPL", "NVDA", "MSFT", "TSLA", "SPY", "QQQ", "BTC-USD", "ETH-USD"];
-
+const QUICK_SYMBOLS = ["BTC-USD", "AAPL", "NVDA", "MSFT", "TSLA", "ETH-USD", "SPY", "QQQ"];
 const AGENT_ORDER = ["macro", "technical", "fundamental", "crypto", "sentiment", "risk"];
+const AGENT_LABELS = ["Makro", "Technisch", "Fundamental", "Krypto", "Sentiment", "Risiko"];
 
 function AnalyzeInner() {
   const searchParams = useSearchParams();
@@ -22,6 +22,7 @@ function AnalyzeInner() {
   useEffect(() => {
     const sym = searchParams.get("symbol");
     if (sym) runAnalysis(sym);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -59,10 +60,10 @@ function AnalyzeInner() {
         asset_type: result.asset_type,
       });
       setTradeResult(
-        `Trade ausgeführt: ${trade.direction} ${trade.quantity.toFixed(6)} ${trade.symbol} @ CHF ${trade.price_chf.toFixed(2)} — Total: CHF ${trade.total_chf.toLocaleString("de-CH", { maximumFractionDigits: 0 })}`
+        `✅ Trade ausgeführt: ${trade.direction} ${trade.quantity.toFixed(6)} ${trade.symbol} @ CHF ${trade.price_chf.toFixed(2)} — Total: CHF ${trade.total_chf.toLocaleString("de-CH", { maximumFractionDigits: 0 })}`
       );
     } catch (e: unknown) {
-      setTradeResult(`Fehler: ${e instanceof Error ? e.message : "Unbekannt"}`);
+      setTradeResult(`❌ Fehler: ${e instanceof Error ? e.message : "Unbekannt"}`);
     } finally {
       setTrading(false);
     }
@@ -74,11 +75,13 @@ function AnalyzeInner() {
         .map(k => [k, result.signals[k]] as [string, typeof result.signals[string]])
     : [];
 
+  const agentsDone = loading ? Math.floor(elapsed / 5) : 0;
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-extrabold text-gray-900">Symbol analysieren</h1>
-        <p className="text-gray-500 mt-1">6 KI-Agenten analysieren das Asset und geben eine Empfehlung</p>
+        <p className="text-gray-500 mt-1">6 KI-Agenten analysieren das Asset parallel und geben eine Empfehlung</p>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -89,14 +92,19 @@ function AnalyzeInner() {
             onChange={e => setSymbol(e.target.value.toUpperCase())}
             onKeyDown={e => e.key === "Enter" && runAnalysis(symbol)}
             placeholder="z.B. AAPL, BTC-USD, SPY…"
-            className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <button
             onClick={() => runAnalysis(symbol)}
-            disabled={loading || !symbol}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors"
+            disabled={loading || !symbol.trim()}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
           >
-            {loading ? "Analysiere…" : "Analysieren"}
+            {loading ? (
+              <>
+                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Analysiere…
+              </>
+            ) : "🔍 Analysieren"}
           </button>
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
@@ -105,7 +113,7 @@ function AnalyzeInner() {
               key={s}
               onClick={() => runAnalysis(s)}
               disabled={loading}
-              className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors disabled:opacity-40"
+              className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors disabled:opacity-40 font-medium"
             >
               {s}
             </button>
@@ -114,14 +122,23 @@ function AnalyzeInner() {
       </div>
 
       {loading && (
-        <div className="text-center py-16">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm text-center">
           <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent mb-4"></div>
-          <p className="text-gray-600 font-medium">6 Agenten analysieren {symbol}…</p>
-          <p className="text-gray-400 text-sm mt-1">{elapsed}s — dauert ca. 20–40 Sekunden</p>
-          <div className="mt-4 flex justify-center gap-2 text-xs text-gray-400">
-            {["Makro", "Technisch", "Fundamental", "Krypto", "Sentiment", "Risiko"].map((a, i) => (
-              <span key={a} className={`px-2 py-1 rounded-full border ${elapsed > i * 4 ? "bg-blue-50 border-blue-200 text-blue-600" : "border-gray-200"}`}>
-                {a}
+          <p className="text-gray-800 font-semibold text-lg">6 Agenten analysieren {symbol}</p>
+          <p className="text-gray-400 text-sm mt-1">{elapsed}s — dauert ca. 20–60 Sekunden</p>
+          <div className="mt-5 flex justify-center gap-2 flex-wrap">
+            {AGENT_LABELS.map((a, i) => (
+              <span
+                key={a}
+                className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
+                  agentsDone > i
+                    ? "bg-green-50 border-green-300 text-green-700"
+                    : agentsDone === i
+                    ? "bg-blue-50 border-blue-300 text-blue-700 animate-pulse"
+                    : "border-gray-200 text-gray-400"
+                }`}
+              >
+                {agentsDone > i ? "✓ " : agentsDone === i ? "⟳ " : ""}{a}
               </span>
             ))}
           </div>
@@ -129,17 +146,23 @@ function AnalyzeInner() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          <strong>Fehler:</strong> {error}
+        <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex items-start gap-3">
+          <span className="text-xl">❌</span>
+          <div>
+            <p className="font-semibold text-red-700">Analyse fehlgeschlagen</p>
+            <p className="text-sm text-red-600 mt-0.5">{error}</p>
+          </div>
         </div>
       )}
 
       {result && (
-        <div className="space-y-6">
-          <h2 className="text-xl font-bold text-gray-900">
-            {result.symbol}
-            <span className="ml-2 text-sm font-normal text-gray-400 uppercase">{result.asset_type}</span>
-          </h2>
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-gray-900">{result.symbol}</h2>
+            <span className="text-xs font-semibold text-gray-400 uppercase bg-gray-100 px-2 py-1 rounded">
+              {result.asset_type}
+            </span>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {orderedSignals.map(([name, signal]) => (
@@ -154,7 +177,11 @@ function AnalyzeInner() {
           />
 
           {tradeResult && (
-            <div className={`rounded-lg p-4 text-sm ${tradeResult.startsWith("Fehler") ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>
+            <div className={`rounded-xl p-4 text-sm font-medium ${
+              tradeResult.startsWith("❌")
+                ? "bg-red-50 text-red-700 border border-red-200"
+                : "bg-green-50 text-green-700 border border-green-200"
+            }`}>
               {tradeResult}
             </div>
           )}
@@ -166,7 +193,12 @@ function AnalyzeInner() {
 
 export default function AnalyzePage() {
   return (
-    <Suspense fallback={<div className="text-gray-400">Lade…</div>}>
+    <Suspense fallback={
+      <div className="flex items-center gap-3 py-8 text-gray-400">
+        <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-transparent" />
+        Lade…
+      </div>
+    }>
       <AnalyzeInner />
     </Suspense>
   );
