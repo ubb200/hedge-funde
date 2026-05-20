@@ -132,6 +132,31 @@ async def run_analysis(
         final_action = "HOLD"
         final_conf = risk_conf
         reasoning = f"Risk-Veto (Confidence {risk_conf:.0%}): {risk_sig.get('reasoning', '')}. " + _build_reasoning(all_signals, final_action, weighted_score)
+
+    # Trend-Veto: klarer Abwärtstrend blockiert BUY — gute These, falsches Timing
+    # Bedingung: Technical sagt SELL/HOLD UND 20d-Return < -10% UND Preis unter SMA50
+    elif final_action == "BUY":
+        tech_metrics = tech_sig.get("key_metrics", {})
+        ret_20d = tech_metrics.get("ret_20d")
+        pct_vs_sma50 = tech_metrics.get("pct_vs_sma50")
+        tech_action = tech_sig.get("action", "HOLD")
+
+        downtrend = (
+            ret_20d is not None and ret_20d < -10
+            and pct_vs_sma50 is not None and pct_vs_sma50 < -5
+            and tech_action in ("SELL", "HOLD")
+        )
+        if downtrend:
+            final_action = "HOLD"
+            final_conf = 0.6
+            reasoning = (
+                f"Trend-Veto: Die Megatrend-These ist intakt, aber der Kurs ist im klaren Abwärtstrend "
+                f"({ret_20d:+.1f}% in 20 Tagen, {pct_vs_sma50:+.1f}% unter SMA50). "
+                f"Warten bis der Trend dreht (Preis über SMA50 + positive 20T-Rendite). "
+                + _build_reasoning(all_signals, final_action, weighted_score)
+            )
+        else:
+            reasoning = _build_reasoning(all_signals, final_action, weighted_score)
     else:
         reasoning = _build_reasoning(all_signals, final_action, weighted_score)
 
