@@ -26,6 +26,7 @@ from scheduler import run_daily_analysis, start_scheduler, stop_scheduler
 from screener import run_screener
 from config import WATCHLIST_PATH
 import kraken_client
+import telegram_commander
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -46,7 +47,9 @@ async def lifespan(app: FastAPI):
         _db_error = f"{type(exc).__name__}: {exc}"
         logger.error(f"Datenbank-Initialisierung fehlgeschlagen: {exc}", exc_info=True)
     start_scheduler()
+    telegram_commander.start()
     yield
+    telegram_commander.stop()
     stop_scheduler()
 
 
